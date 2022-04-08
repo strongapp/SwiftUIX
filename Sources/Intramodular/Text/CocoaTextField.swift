@@ -45,6 +45,7 @@ public struct CocoaTextField<Label: View>: View {
         var secureTextEntry: Bool?
         var textColor: UIColor?
         var textContentType: UITextContentType?
+        var textField: (() -> UITextField)?
         
         // MARK: Input Accessory
         
@@ -158,7 +159,7 @@ fileprivate struct _CocoaTextField<Label: View>: UIViewRepresentable {
     }
     
     func makeUIView(context: Context) -> UIViewType {
-        let uiView = _UITextField()
+        let uiView = configuration.textField?() ?? _UITextField()
         
         uiView.setContentHuggingPriority(.defaultHigh, for: .vertical)
         uiView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -173,7 +174,7 @@ fileprivate struct _CocoaTextField<Label: View>: UIViewRepresentable {
             }
         }
 
-        return uiView
+        return uiView as! _CocoaTextField<Label>.UIViewType
     }
     
     func updateUIView(_ uiView: UIViewType, context: Context) {
@@ -252,8 +253,10 @@ fileprivate struct _CocoaTextField<Label: View>: UIViewRepresentable {
                 if let _inputView = uiView.inputView as? UIHostingView<AnyView> {
                     _inputView.rootView = inputView
                 } else {
-                    uiView.inputView = UIHostingView(rootView: inputView)
-                    uiView.inputView?.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                    let hostingView = UIHostingView(rootView: inputView)
+                    hostingView._fixSafeAreaInsets()
+                    hostingView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                    uiView.inputView = hostingView
                 }
             } else {
                 uiView.inputView = nil
@@ -347,12 +350,14 @@ extension CocoaTextField where Label == Text {
         _ title: S,
         text: Binding<String>,
         isEditing: Binding<Bool>,
-        onCommit: @escaping () -> Void = { }
+        onEditingChanged: @escaping (Bool) -> Void = { _ in },
+        onCommit: @escaping () -> Void = { },
+        textField: (() -> UITextField)? = nil
     ) {
         self.label = Text(title).foregroundColor(.placeholderText)
         self.text = text
         self.isEditing = isEditing
-        self.configuration = .init(onCommit: onCommit)
+        self.configuration = .init(onEditingChanged: onEditingChanged, onCommit: onCommit, textField: textField)
     }
     
     public init<S: StringProtocol>(
@@ -527,7 +532,7 @@ extension CocoaTextField where Label == Text {
 
 // MARK: - Auxiliary Implementation -
 
-private final class _UITextField: UITextField {
+open class _UITextField: UITextField {
     var isFirstResponderBinding: Binding<Bool>?
 
     var onDeleteBackward: () -> Void = { }
@@ -538,16 +543,16 @@ private final class _UITextField: UITextField {
 
     lazy var clearButton: UIButton? = value(forKeyPath: "_clearButton") as? UIButton
 
-    override init(frame: CGRect) {
+    public override init(frame: CGRect) {
         super.init(frame: frame)
     }
     
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+    public required init?(coder: NSCoder) {
+        super.init(coder: coder)
     }
     
     @discardableResult
-    override func becomeFirstResponder() -> Bool {
+    open override func becomeFirstResponder() -> Bool {
         defer {
             if isFirstResponderBinding?.wrappedValue != isFirstResponder {
                 isFirstResponderBinding?.wrappedValue = isFirstResponder
@@ -558,7 +563,7 @@ private final class _UITextField: UITextField {
     }
     
     @discardableResult
-    override func resignFirstResponder() -> Bool {
+    open override func resignFirstResponder() -> Bool {
         defer {
             if isFirstResponderBinding?.wrappedValue != isFirstResponder {
                 isFirstResponderBinding?.wrappedValue = isFirstResponder
@@ -568,25 +573,25 @@ private final class _UITextField: UITextField {
        return super.resignFirstResponder()
     }
     
-    override func deleteBackward() {
+    public override func deleteBackward() {
         super.deleteBackward()
         
         onDeleteBackward()
     }
     
-    override func textRect(forBounds bounds: CGRect) -> CGRect {
+    open override func textRect(forBounds bounds: CGRect) -> CGRect {
         let original = super.textRect(forBounds: bounds)
         
         return textRect?(bounds, original) ?? original
     }
     
-    override func editingRect(forBounds bounds: CGRect) -> CGRect {
+    open override func editingRect(forBounds bounds: CGRect) -> CGRect {
         let original = super.editingRect(forBounds: bounds)
         
         return editingRect?(bounds, original) ?? original
     }
     
-    override func clearButtonRect(forBounds bounds: CGRect) -> CGRect {
+    open override func clearButtonRect(forBounds bounds: CGRect) -> CGRect {
         let original = super.clearButtonRect(forBounds: bounds)
         
         return clearButtonRect?(bounds, original) ?? original
