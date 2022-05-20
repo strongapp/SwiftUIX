@@ -41,6 +41,7 @@ public struct CocoaTextField<Label: View>: View {
         var inputView: AnyView?
         var kerning: CGFloat?
         var placeholder: String?
+        var placeholderColor: UIColor?
         var smartDashesType: UITextSmartDashesType?
         var smartQuotesType: UITextSmartQuotesType?
         var spellCheckingType: UITextSpellCheckingType?
@@ -223,6 +224,7 @@ fileprivate struct _CocoaTextField<Label: View>: UIViewRepresentable {
                 uiView.attributedPlaceholder = NSAttributedString(
                     string: placeholder,
                     attributes: [
+                        .foregroundColor : configuration.placeholderColor,
                         .font: try? configuration.uiFont ?? context.environment.font?.toAppKitOrUIKitFont() ?? uiView.font,
                         .paragraphStyle: NSMutableParagraphStyle().then {
                             $0.alignment = .init(context.environment.multilineTextAlignment)
@@ -442,6 +444,10 @@ extension CocoaTextField {
     
     public func placeholder(_ placeholder: String) -> Self {
         then({ $0.configuration.placeholder = placeholder })
+    }
+    
+    public func placeholderColor(_ placeholderColor: Color) -> Self {
+        then({ $0.configuration.placeholderColor = placeholderColor.toUIColor() })
     }
     
     public func foregroundColor(_ foregroundColor: Color?) -> Self {
